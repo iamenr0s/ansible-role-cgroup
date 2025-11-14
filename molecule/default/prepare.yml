@@ -27,7 +27,6 @@
         state: present
         update_cache: true
       when: ansible_os_family == 'Debian'
-      become: true
 
     - name: Install GRUB tools on RedHat/Rocky/Alma/Fedora
       ansible.builtin.package:
@@ -35,4 +34,3 @@
           - grub2-tools
         state: present
       when: ansible_os_family == 'RedHat'
-      become: true
