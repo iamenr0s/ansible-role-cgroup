@@ -8,6 +8,14 @@
             ['systemd.unified_cgroup_hierarchy=0'] + (cgroup_v1_enable_memory | bool | ternary(['cgroup_enable=memory','swapaccount=1'], []))
          ) + cgroup_extra_kernel_params }}
 
+- name: Ensure /etc/default/grub exists
+  ansible.builtin.file:
+    path: /etc/default/grub
+    state: touch
+    owner: root
+    group: root
+    mode: '0644'
+
 - name: Check GRUB cmdline keys presence
   ansible.builtin.lineinfile:
     path: /etc/default/grub
@@ -29,7 +37,8 @@
     owner: root
     group: root
     mode: '0644'
-  loop: '{{ __grub_keys.results | selectattr("found", "equalto", 0) | list }}'
+  loop: '{{ __grub_keys.results }}'
+  when: (item.found | default(0)) == 0
   register: __ensure_lines
 
 - name: Accumulate reboot requirement from ensure lines
