@@ -17,6 +17,10 @@
         path: /etc/default/grub
       register: grub_file
 
+    - name: Show grub content for debug
+      ansible.builtin.debug:
+        msg: "{{ grub_file.content | b64decode }}"
+
     - name: Assert v2 kernel params present
       ansible.builtin.assert:
         that:
