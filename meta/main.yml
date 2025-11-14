@@ -1,8 +1,8 @@
 ---
 galaxy_info:
-  role_name: ansible_role_template
+  role_name: ansible_role_cgroup
   author: "iamenr0s"
-  description: "A comprehensive Ansible role for ..."
+  description: "A comprehensive Ansible role for managing Linux cgroup configuration across Debian/Ubuntu and RedHat/AlmaLinux/Rocky/Fedora. Ensures persistent kernel parameters via GRUB updates and reboots when changes are applied."
   license: MIT
   min_ansible_version: "2.9"
   platforms:
@@ -22,17 +22,21 @@ galaxy_info:
         - "40"
         - "41"
         - "42"
-    - name: "Rocky"
-      versions:
-        - "8.0"
-        - "9.0"
-        - "10.0"
+    # Rocky Linux is covered under EL support; remove explicit entry to satisfy
+    # ansible-lint schema expectations for platforms.
     - name: "Ubuntu"
       versions:
         - "focal"
         - "jammy"
         - "kinetic"
-  galaxy_tags: []
+  galaxy_tags:
+    - cgroup
+    - systemd
+    - grub
+    - kernel
+    - linux
 
 dependencies: []
-collections: []
+collections:
+  - ansible.posix
+  - community.general
