@@ -84,10 +84,35 @@
   ansible.builtin.set_fact:
     grub_cfg_path: '{{ (__grub_cfg_stats.results | selectattr("stat.exists", "equalto", true) | map(attribute="item") | first) | default("/boot/grub2/grub.cfg") }}'
 
+- name: Probe container marker files
+  ansible.builtin.stat:
+    path: '{{ item }}'
+  loop:
+    - /.dockerenv
+    - /run/.containerenv
+    - /run/systemd/container
+  register: __container_markers
+
 - name: Detect containerized environment to skip GRUB regeneration
   ansible.builtin.set_fact:
-    cgroup_skip_grub_update: true
-  when: ansible_virtualization_type is defined and ansible_virtualization_type in ['docker', 'podman', 'containerd', 'lxc', 'lxd']
+    cgroup_skip_grub_update: >-
+      {{
+        (
+          ansible_virtualization_type is defined and
+          ansible_virtualization_type in ['docker', 'podman', 'containerd', 'lxc', 'lxd']
+        ) or (
+          ansible_virtualization_role is defined and
+          ansible_virtualization_role == 'guest' and
+          ansible_virtualization_type is defined and
+          ansible_virtualization_type in ['docker', 'podman', 'containerd', 'lxc', 'lxd']
+        ) or (
+          ansible_mounts is defined and
+          (ansible_mounts | selectattr('mount', 'equalto', '/') | selectattr('fstype', 'equalto', 'overlay') | list | length > 0)
+        ) or (
+          __container_markers is defined and
+          (__container_markers.results | selectattr('stat.exists', 'equalto', true) | list | length > 0)
+        )
+      }}
 
 - name: Regenerate GRUB configuration
   ansible.builtin.meta: flush_handlers
