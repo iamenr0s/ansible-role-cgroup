@@ -84,17 +84,22 @@
   ansible.builtin.set_fact:
     grub_cfg_path: '{{ (__grub_cfg_stats.results | selectattr("stat.exists", "equalto", true) | map(attribute="item") | first) | default("/boot/grub2/grub.cfg") }}'
 
+- name: Detect containerized environment to skip GRUB regeneration
+  ansible.builtin.set_fact:
+    cgroup_skip_grub_update: true
+  when: ansible_virtualization_type is defined and ansible_virtualization_type in ['docker', 'podman', 'containerd', 'lxc', 'lxd']
+
 - name: Regenerate GRUB configuration
   ansible.builtin.meta: flush_handlers
 
 - name: Update GRUB on Debian/Ubuntu
   ansible.builtin.command: update-grub
-  when: (ansible_os_family == 'Debian') and cgroup_reboot_required | default(false)
+  when: (ansible_os_family == 'Debian') and cgroup_reboot_required | default(false) and not (cgroup_skip_grub_update | default(false))
   notify: Reboot host for cgroup changes
   changed_when: true
 
 - name: Update GRUB on RedHat/Rocky/Alma/Fedora
   ansible.builtin.command: grub2-mkconfig -o {{ grub_cfg_path }}
-  when: (ansible_os_family == 'RedHat') and cgroup_reboot_required | default(false)
+  when: (ansible_os_family == 'RedHat') and cgroup_reboot_required | default(false) and not (cgroup_skip_grub_update | default(false))
   notify: Reboot host for cgroup changes
   changed_when: true
