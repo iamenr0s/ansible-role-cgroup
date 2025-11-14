@@ -41,7 +41,7 @@
 - name: Check presence of options in GRUB cmdlines
   ansible.builtin.lineinfile:
     path: /etc/default/grub
-    regexp: '^{{ item.0 }}=".*{{ (item.1 | regex_escape) }}.*"$'
+    regexp: '^{{ item.0 }}="[^"]*{{ (item.1 | regex_escape) }}[^"]*"'
     state: absent
   check_mode: true
   changed_when: false
@@ -52,8 +52,8 @@
   ansible.builtin.lineinfile:
     path: /etc/default/grub
     backrefs: true
-    regexp: '^({{ item.0 }}=".*)"$'
-    line: '\\1 {{ item.1 }}"'
+    regexp: '^({{ item.0 }}="[^"]*)(".*)$'
+    line: '\\1 {{ item.1 }}\\2'
   loop: '{{ ["GRUB_CMDLINE_LINUX", "GRUB_CMDLINE_LINUX_DEFAULT"] | product(__cgroup_kernel_args) | list }}'
   loop_control:
     index_var: idx
