@@ -1,4 +1,5 @@
----
 
-# Role - Handlers
-# ...
+- name: Reboot host for cgroup changes
+  ansible.builtin.reboot:
+    reboot_timeout: 600
+    msg: "Reboot initiated to apply cgroup configuration"

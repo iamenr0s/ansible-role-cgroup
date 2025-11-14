@@ -19,3 +19,19 @@
           - ansible_python_version is version('3.0', '>=')
         fail_msg: "Python 3 is required but not available"
         success_msg: "Python {{ ansible_python_version }} is available"
+
+    - name: Install GRUB tools on Debian/Ubuntu
+      ansible.builtin.package:
+        name:
+          - grub-common
+        state: present
+      when: ansible_os_family == 'Debian'
+      become: true
+
+    - name: Install GRUB tools on RedHat/Rocky/Alma/Fedora
+      ansible.builtin.package:
+        name:
+          - grub2-tools
+        state: present
+      when: ansible_os_family == 'RedHat'
+      become: true

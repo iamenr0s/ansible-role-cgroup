@@ -1,4 +1,94 @@
----
 
-# Role - Main Tasks
-# This role implements ...
+- name: Set cgroup kernel arguments
+  ansible.builtin.set_fact:
+    __cgroup_kernel_args: >-
+      {{ (cgroup_enforce_mode == 'v2') | ternary(
+            ['systemd.unified_cgroup_hierarchy=1','cgroup_no_v1=all'],
+            ['systemd.unified_cgroup_hierarchy=0'] + (cgroup_v1_enable_memory | bool | ternary(['cgroup_enable=memory','swapaccount=1'], []))
+         ) + cgroup_extra_kernel_params }}
+
+- name: Ensure GRUB cmdline keys exist
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^{{ item }}='
+    line: '{{ item }}=""'
+    create: true
+  loop:
+    - GRUB_CMDLINE_LINUX
+    - GRUB_CMDLINE_LINUX_DEFAULT
+  register: __ensure_lines
+
+- name: Accumulate reboot requirement from ensure lines
+  ansible.builtin.set_fact:
+    cgroup_reboot_required: '{{ cgroup_reboot_required | default(false) or (__ensure_lines is defined and (__ensure_lines.results | selectattr("changed") | list | length > 0)) }}'
+
+- name: Normalize existing option values
+  ansible.builtin.replace:
+    path: /etc/default/grub
+    regexp: '({{ (item.split("=")[0]) | regex_escape }}=)\S+'
+    replace: '\\1{{ (item.split("=")[1] | default("") ) }}'
+  loop: '{{ __cgroup_kernel_args }}'
+  register: __replace_results
+
+- name: Accumulate reboot requirement from normalization
+  ansible.builtin.set_fact:
+    cgroup_reboot_required: '{{ cgroup_reboot_required | default(false) or (__replace_results is defined and (__replace_results.results | selectattr("changed") | list | length > 0)) }}'
+
+- name: Check presence of options in GRUB cmdlines
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^{{ item.0 }}=".*{{ (item.1 | regex_escape) }}.*"$'
+    state: absent
+  check_mode: true
+  changed_when: false
+  loop: '{{ ["GRUB_CMDLINE_LINUX","GRUB_CMDLINE_LINUX_DEFAULT"] | product(__cgroup_kernel_args) | list }}'
+  register: __option_checks
+
+- name: Append missing options to GRUB cmdlines
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    backrefs: true
+    regexp: '^( {{ item.0 }}=".*)"$'
+    line: '\\1 {{ item.1 }}"'
+  loop: '{{ ["GRUB_CMDLINE_LINUX","GRUB_CMDLINE_LINUX_DEFAULT"] | product(__cgroup_kernel_args) | list }}'
+  loop_control:
+    index_var: idx
+  when: __option_checks.results[idx].found == 0
+  register: __append_results
+
+- name: Accumulate reboot requirement from appends
+  ansible.builtin.set_fact:
+    cgroup_reboot_required: '{{ cgroup_reboot_required | default(false) or (__append_results is defined and (__append_results.results | selectattr("changed") | list | length > 0)) }}'
+
+- name: Detect GRUB configuration target (EL family)
+  ansible.builtin.set_fact:
+    grub_cfg_candidates:
+      - /boot/efi/EFI/redhat/grub.cfg
+      - /boot/efi/EFI/centos/grub.cfg
+      - /boot/efi/EFI/rocky/grub.cfg
+      - /boot/efi/EFI/almalinux/grub.cfg
+      - /boot/efi/EFI/fedora/grub.cfg
+      - /boot/grub2/grub.cfg
+
+- name: Probe GRUB config paths
+  ansible.builtin.stat:
+    path: '{{ item }}'
+  loop: '{{ grub_cfg_candidates }}'
+  register: __grub_cfg_stats
+
+- name: Select GRUB config path
+  ansible.builtin.set_fact:
+    grub_cfg_path: '{{ (__grub_cfg_stats.results | selectattr("stat.exists","equalto",true) | map(attribute="item") | first) | default("/boot/grub2/grub.cfg") }}'
+
+- name: Regenerate GRUB configuration
+  ansible.builtin.meta: flush_handlers
+
+- name: Update GRUB on Debian/Ubuntu
+  ansible.builtin.command: update-grub
+  when: (ansible_os_family == 'Debian') and cgroup_reboot_required | default(false)
+  notify: Reboot host for cgroup changes
+
+- name: Update GRUB on RedHat/Rocky/Alma/Fedora
+  ansible.builtin.command: grub2-mkconfig -o {{ grub_cfg_path }}
+  when: (ansible_os_family == 'RedHat') and cgroup_reboot_required | default(false)
+  notify: Reboot host for cgroup changes

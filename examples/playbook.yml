@@ -1,4 +1,18 @@
 ---
 
-# Example Playbook for ...
-# This playbook demonstrates various usage scenarios
+ - name: Apply cgroup configuration (v2)
+   hosts: all
+   become: true
+   roles:
+     - role: iamenr0s.ansible_role_cgroup
+       vars:
+         cgroup_enforce_mode: "v2"
+
+ - name: Apply cgroup configuration (v1 with memory accounting)
+   hosts: v1_servers
+   become: true
+   roles:
+     - role: iamenr0s.ansible_role_cgroup
+       vars:
+         cgroup_enforce_mode: "v1"
+         cgroup_v1_enable_memory: true

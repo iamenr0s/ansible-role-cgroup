@@ -1,1 +1,4 @@
 ---
+cgroup_enforce_mode: "v2"
+cgroup_v1_enable_memory: true
+cgroup_extra_kernel_params: []
