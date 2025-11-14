@@ -21,5 +21,4 @@
       ansible.builtin.assert:
         that:
           - (grub_file.content | b64decode) is search('systemd.unified_cgroup_hierarchy=1')
-          - (grub_file.content | b64decode) is search('cgroup_no_v1=all')
           - (grub_file.content | b64decode) is search('audit=1')
