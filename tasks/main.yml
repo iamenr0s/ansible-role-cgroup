@@ -1,3 +1,4 @@
+---
 
 - name: Set cgroup kernel arguments
   ansible.builtin.set_fact:
