@@ -21,11 +21,13 @@
         success_msg: "Python {{ ansible_python_version }} is available"
 
     - name: Install GRUB tools on Debian/Ubuntu
-      ansible.builtin.package:
+      ansible.builtin.apt:
         name:
-          - grub-common
+          - grub2-common
         state: present
+        update_cache: true
       when: ansible_os_family == 'Debian'
+      become: true
 
     - name: Install GRUB tools on RedHat/Rocky/Alma/Fedora
       ansible.builtin.package:
@@ -33,3 +35,4 @@
           - grub2-tools
         state: present
       when: ansible_os_family == 'RedHat'
+      become: true

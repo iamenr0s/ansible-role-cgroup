@@ -15,7 +15,7 @@ Manages Linux cgroup configuration across Debian/Ubuntu and RedHat/AlmaLinux/Roc
 
 - Ansible 2.9 or higher
 - GRUB utilities available on target:
-  - Debian/Ubuntu: `update-grub` (provided by `grub-common`)
+  - Debian/Ubuntu: `update-grub` (provided by `grub2-common`)
   - RedHat/Rocky/Alma/Fedora: `grub2-mkconfig` (provided by `grub2-tools`)
 
 ## Supported Platforms
