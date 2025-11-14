@@ -52,7 +52,7 @@
   ansible.builtin.lineinfile:
     path: /etc/default/grub
     backrefs: true
-    regexp: '^( {{ item.0 }}=".*)"$'
+    regexp: '^({{ item.0 }}=".*)"$'
     line: '\\1 {{ item.1 }}"'
   loop: '{{ ["GRUB_CMDLINE_LINUX", "GRUB_CMDLINE_LINUX_DEFAULT"] | product(__cgroup_kernel_args) | list }}'
   loop_control:
