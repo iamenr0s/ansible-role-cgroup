@@ -94,12 +94,13 @@
 - name: Detect GRUB configuration target (EL family)
   ansible.builtin.set_fact:
     grub_cfg_candidates:
+      - /boot/grub2/grub.cfg
+      - /etc/grub2.cfg
       - /boot/efi/EFI/redhat/grub.cfg
       - /boot/efi/EFI/centos/grub.cfg
       - /boot/efi/EFI/rocky/grub.cfg
       - /boot/efi/EFI/almalinux/grub.cfg
       - /boot/efi/EFI/fedora/grub.cfg
-      - /boot/grub2/grub.cfg
 
 - name: Probe GRUB config paths
   ansible.builtin.stat:
