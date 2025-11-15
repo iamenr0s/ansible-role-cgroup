@@ -8,13 +8,20 @@
             ['systemd.unified_cgroup_hierarchy=0'] + (cgroup_v1_enable_memory | bool | ternary(['cgroup_enable=memory','swapaccount=1'], []))
          ) + cgroup_extra_kernel_params }}
 
-- name: Ensure /etc/default/grub exists
-  ansible.builtin.file:
+- name: Stat /etc/default/grub
+  ansible.builtin.stat:
     path: /etc/default/grub
-    state: touch
+  register: __grub_file
+
+- name: Create /etc/default/grub if missing
+  ansible.builtin.copy:
+    dest: /etc/default/grub
+    content: ''
     owner: root
     group: root
     mode: '0644'
+    force: false
+  when: not __grub_file.stat.exists
 
 - name: Check GRUB cmdline keys presence
   ansible.builtin.lineinfile:
@@ -48,8 +55,8 @@
 - name: Normalize existing option values
   ansible.builtin.replace:
     path: /etc/default/grub
-    regexp: '({{ (item.split("=")[0]) | regex_escape }}=)\S+'
-    replace: '\g<1>{{ (item.split("=")[1] | default("")) }}'
+    regexp: '({{ (item.split("=")[0]) | regex_escape }}=)[^"\s]+'
+    replace: '\\g<1>{{ (item.split("=")[1] | default("")) }}'
   loop: '{{ __cgroup_kernel_args }}'
   register: __replace_results
 
