@@ -52,17 +52,18 @@
   ansible.builtin.set_fact:
     cgroup_reboot_required: '{{ cgroup_reboot_required | default(false) or (__ensure_lines is defined and (__ensure_lines.results | selectattr("changed") | list | length > 0)) }}'
 
-- name: Normalize existing option values
-  ansible.builtin.replace:
+- name: Correct mismatched option values in GRUB cmdlines
+  ansible.builtin.lineinfile:
     path: /etc/default/grub
-    regexp: '({{ (item.split("=")[0]) | regex_escape }}=)[^"\s]+'
-    replace: '\\g<1>{{ (item.split("=")[1] | default("")) }}'
-  loop: '{{ __cgroup_kernel_args }}'
-  register: __replace_results
+    backrefs: true
+    regexp: '^({{ item.0 }}="[^"]*?{{ (item.1.split("=")[0] | regex_escape) }}=)(?!{{ (item.1.split("=")[1] | default("") | regex_escape) }})[^"\s]+'
+    line: '\\g<1>{{ (item.1.split("=")[1] | default("") ) }}'
+  loop: '{{ ["GRUB_CMDLINE_LINUX", "GRUB_CMDLINE_LINUX_DEFAULT"] | product(__cgroup_kernel_args) | list }}'
+  register: __fix_results
 
-- name: Accumulate reboot requirement from normalization
+- name: Accumulate reboot requirement from corrections
   ansible.builtin.set_fact:
-    cgroup_reboot_required: '{{ cgroup_reboot_required | default(false) or (__replace_results is defined and (__replace_results.results | selectattr("changed") | list | length > 0)) }}'
+    cgroup_reboot_required: '{{ cgroup_reboot_required | default(false) or (__fix_results is defined and (__fix_results.results | selectattr("changed") | list | length > 0)) }}'
 
 - name: Check presence of options in GRUB cmdlines
   ansible.builtin.lineinfile:
