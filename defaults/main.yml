@@ -2,4 +2,5 @@
 cgroup_enforce_mode: "v2"
 cgroup_v1_enable_memory: true
 cgroup_v1_add_cgroup_memory_param: true
+cgroup_force_reboot_on_memcg_absent: true
 cgroup_extra_kernel_params: []

@@ -178,3 +178,9 @@
   ansible.builtin.set_fact:
     cgroup_memcg_ok: >-
       {{ (__cgroup_fs.stdout | default('')) == 'cgroup2fs' or (__memcg_dir.stat.exists | default(false)) or ((__proc_memcg.stdout | default('')) == '1') }}
+
+- name: Trigger reboot when memcg expected but absent
+  ansible.builtin.command: /bin/true
+  when: (cgroup_force_reboot_on_memcg_absent | bool) and ((cgroup_enforce_mode == 'v2') or (cgroup_enforce_mode == 'v1' and (cgroup_v1_enable_memory | bool))) and not (cgroup_memcg_ok | default(false)) and not (cgroup_skip_grub_update | default(false))
+  notify: Reboot host for cgroup changes
+  changed_when: true
