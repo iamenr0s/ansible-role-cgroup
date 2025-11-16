@@ -30,6 +30,7 @@ Manages Linux cgroup configuration across Debian/Ubuntu and RedHat/AlmaLinux/Roc
 
 - `cgroup_enforce_mode`: cgroup mode to enforce (`"v2"` or `"v1"`). Default: `"v2"`
 - `cgroup_v1_enable_memory`: when `v1`, enables memory accounting with `cgroup_enable=memory swapaccount=1`. Default: `true`
+- `cgroup_v1_add_cgroup_memory_param`: when `v1`, also adds `cgroup_memory=1` for kernels that require explicit enable. Default: `true`
 - `cgroup_extra_kernel_params`: list of extra kernel `key=value` parameters to append. Default: `[]`
 
 ## Behavior

@@ -5,7 +5,7 @@
     __cgroup_kernel_args: >-
       {{ (cgroup_enforce_mode == 'v2') | ternary(
             ['systemd.unified_cgroup_hierarchy=1','cgroup_no_v1=all'],
-            ['systemd.unified_cgroup_hierarchy=0'] + (cgroup_v1_enable_memory | bool | ternary(['cgroup_enable=memory','swapaccount=1'], []))
+            ['systemd.unified_cgroup_hierarchy=0'] + (cgroup_v1_enable_memory | bool | ternary((cgroup_v1_add_cgroup_memory_param | bool | ternary(['cgroup_memory=1'], [])) + ['cgroup_enable=memory','swapaccount=1'], []))
          ) + cgroup_extra_kernel_params }}
 
 - name: Stat /etc/default/grub
