@@ -38,8 +38,6 @@
       when: ansible_os_family == 'Debian'
 
     - name: Install GRUB tools on RedHat/Rocky/Alma/Fedora
-      ansible.builtin.package:
-        name:
-          - grub2-tools
-        state: present
+      ansible.builtin.raw: dnf install -y grub2-tools
       when: ansible_os_family == 'RedHat'
+      changed_when: false
