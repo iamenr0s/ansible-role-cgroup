@@ -2,10 +2,19 @@
 
 - name: Prepare
   hosts: all
-  gather_facts: true
+  gather_facts: false
   become: false
 
   tasks:
+    - name: Bootstrap Python 3.7+ on EL8 (default python3 is 3.6)
+      ansible.builtin.raw: |
+        python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)" 2>/dev/null || \
+        dnf install -y python39 2>/dev/null || true
+      changed_when: false
+
+    - name: Gather facts
+      ansible.builtin.setup:
+
     - name: Ensure /tmp exists
       ansible.builtin.file:
         path: /tmp
