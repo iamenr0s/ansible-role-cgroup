@@ -25,6 +25,11 @@ jobs:
       - name: Install test dependencies.
         run: pip3 install yamllint ansible-lint ansible
 
+      - name: Create role symlink.
+        run: |
+          mkdir -p ~/.ansible/roles
+          ln -s "$(pwd)" ~/.ansible/roles/iamenr0s.ansible_role_cgroup
+
       - name: Lint code.
         run: |
           yamllint .
@@ -69,6 +74,11 @@ jobs:
             "molecule-plugins[docker]" \
             docker \
             cryptography
+
+      - name: Create role symlink.
+        run: |
+          mkdir -p ~/.ansible/roles
+          ln -s "$(pwd)" ~/.ansible/roles/iamenr0s.ansible_role_cgroup
 
       - name: Run Molecule tests.
         run: molecule -vvv test
