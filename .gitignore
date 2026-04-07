@@ -37,6 +37,7 @@ htmlcov/
 
 # Claude Code
 .claude/
+.remember/
 
 # Build outputs (if any)
 dist/

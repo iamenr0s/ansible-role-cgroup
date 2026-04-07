@@ -15,6 +15,11 @@ All notable changes to this project will be documented in this file.
 - CI vault password block removed — no vault-encrypted content exists in the repo
 - `examples/playbook.yml` leading-space indentation corrected
 - Stale Ubuntu `kinetic` (EOL) replaced with `noble` in `meta/main.yml`
+- Molecule prepare stage failing on EL8 (AlmaLinux 8, Rocky Linux 8) — Ansible 2.20+
+  generates `AnsiballZ_setup.py` using `from __future__ import annotations` (Python 3.7+)
+  but EL8 defaults to Python 3.6; fixed by bootstrapping `python39` via `raw` before
+  facts gathering, and using `raw` for `grub2-tools` install to avoid `python3-dnf`
+  binding requirement
 
 ### Added
 - `cgroup_allow_reboot` variable (default: `true`) to allow disabling automatic reboots
