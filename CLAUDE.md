@@ -59,6 +59,7 @@ Manages Linux cgroup configuration by modifying GRUB kernel command-line paramet
 | `cgroup_v1_add_cgroup_memory_param` | `true` | Also adds `cgroup_memory=1` (v1 only) |
 | `cgroup_force_reboot_on_memcg_absent` | `true` | Forces reboot when memory controller expected but not found |
 | `cgroup_extra_kernel_params` | `[]` | Appended verbatim to the computed kernel arg list |
+| `cgroup_allow_reboot` | `true` | Set to `false` to suppress all automatic reboots (e.g. for manually-scheduled maintenance windows) |
 
 ### Naming conventions
 - Private/computed facts use the `__` prefix (e.g. `__cgroup_kernel_args`, `__grub_keys`).
