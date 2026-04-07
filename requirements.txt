@@ -1,5 +1,5 @@
 molecule
-molecule-plugins[podman]
+molecule-plugins[docker]
 paramiko
 ansible-lint
 ansible

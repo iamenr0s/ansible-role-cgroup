@@ -1,10 +1,3 @@
 ---
-
-# Ansible Requirements for cgroup management role
-# Install: ansible-galaxy install -r requirements.yml
-
-collections:
-  - name: ansible.posix
-    version: ">=1.3.0"
-  - name: community.general
-    version: ">=4.0.0"
+# No external collection dependencies required.
+# All tasks use ansible.builtin modules only.

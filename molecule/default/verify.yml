@@ -1,0 +1,36 @@
+---
+
+- name: Verify
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Read /etc/default/grub
+      ansible.builtin.slurp:
+        path: /etc/default/grub
+      register: grub_file
+
+    - name: Set grub content fact
+      ansible.builtin.set_fact:
+        grub_content: "{{ grub_file.content | b64decode }}"
+
+    - name: Assert GRUB_CMDLINE_LINUX key exists
+      ansible.builtin.assert:
+        that:
+          - grub_content is search('GRUB_CMDLINE_LINUX=')
+        fail_msg: "GRUB_CMDLINE_LINUX key is missing from /etc/default/grub"
+
+    - name: Assert GRUB_CMDLINE_LINUX_DEFAULT key exists
+      ansible.builtin.assert:
+        that:
+          - grub_content is search('GRUB_CMDLINE_LINUX_DEFAULT=')
+        fail_msg: "GRUB_CMDLINE_LINUX_DEFAULT key is missing from /etc/default/grub"
+
+    - name: Assert cgroup v2 kernel params are present in both cmdlines
+      ansible.builtin.assert:
+        that:
+          - grub_content is search('systemd.unified_cgroup_hierarchy=1')
+          - grub_content is search('cgroup_no_v1=all')
+        fail_msg: >-
+          Expected cgroup v2 params (systemd.unified_cgroup_hierarchy=1,
+          cgroup_no_v1=all) not found in /etc/default/grub

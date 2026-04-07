@@ -6,7 +6,7 @@ dependency:
   options:
     ignore-errors: true
 driver:
-  name: podman
+  name: docker
 platforms:
   - name: instance
     image: "iamenr0s/docker-${MOLECULE_DISTRO:-almalinux10}-ansible:latest"

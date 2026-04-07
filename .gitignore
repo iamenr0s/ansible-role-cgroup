@@ -35,6 +35,9 @@ htmlcov/
 # Exclude Ansible directory
 .ansible/
 
+# Claude Code
+.claude/
+
 # Build outputs (if any)
 dist/
 build/

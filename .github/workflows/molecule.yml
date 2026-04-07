@@ -20,17 +20,19 @@ jobs:
       - name: Set up Python 3.
         uses: actions/setup-python@v6
         with:
-          python-version: '3.9'
+          python-version: '3.12'
 
       - name: Install test dependencies.
-        run: pip3 install yamllint
+        run: pip3 install yamllint ansible-lint ansible
 
       - name: Lint code.
         run: |
           yamllint .
+          ansible-lint
 
   molecule:
     name: Molecule
+    needs: lint
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -57,7 +59,7 @@ jobs:
       - name: Set up Python 3.
         uses: actions/setup-python@v6
         with:
-          python-version: '3.9'
+          python-version: '3.12'
 
       - name: Install test dependencies.
         run: |
@@ -68,19 +70,9 @@ jobs:
             docker \
             cryptography
 
-      - name: Create vault_password
-        run: |
-          echo ${{ secrets.ANSIBLE_VAULT_PASSWORD }} > ~/.vault-password
-
       - name: Run Molecule tests.
         run: molecule -vvv test
         env:
           PY_COLORS: '1'
           ANSIBLE_FORCE_COLOR: '1'
           MOLECULE_DISTRO: ${{ matrix.distro }}
-          ANSIBLE_VAULT_PASSWORD_FILE: ~/.vault-password
-
-      - name: Remove vault_password
-        if: always()
-        run: |
-          rm -f ~/.vault-password
