@@ -1,3 +1,2 @@
 ---
-# No external collection dependencies required.
-# All tasks use ansible.builtin modules only.
+collections: []
