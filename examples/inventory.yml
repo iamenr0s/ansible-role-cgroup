@@ -1,0 +1,20 @@
+---
+all:
+  children:
+    v2_servers:
+      hosts:
+        v2-debian:
+          ansible_host: 192.0.2.11
+        v2-el:
+          ansible_host: 192.0.2.12
+      vars:
+        cgroup_enforce_mode: "v2"
+    v1_servers:
+      hosts:
+        v1-debian:
+          ansible_host: 192.0.2.21
+        v1-el:
+          ansible_host: 192.0.2.22
+      vars:
+        cgroup_enforce_mode: "v1"
+        cgroup_v1_enable_memory: true

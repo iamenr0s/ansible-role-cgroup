@@ -1,0 +1,43 @@
+---
+
+- name: Prepare
+  hosts: all
+  gather_facts: false
+  become: false
+
+  tasks:
+    - name: Bootstrap Python 3.7+ on EL8 (default python3 is 3.6)
+      ansible.builtin.raw: |
+        python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)" 2>/dev/null || \
+        dnf install -y python39 2>/dev/null || true
+      changed_when: false
+
+    - name: Gather facts
+      ansible.builtin.setup:
+
+    - name: Ensure /tmp exists
+      ansible.builtin.file:
+        path: /tmp
+        state: directory
+        mode: '0777'
+
+    - name: Verify Python 3 is available
+      ansible.builtin.assert:
+        that:
+          - ansible_python_version is defined
+          - ansible_python_version is version('3.0', '>=')
+        fail_msg: "Python 3 is required but not available"
+        success_msg: "Python {{ ansible_python_version }} is available"
+
+    - name: Install GRUB tools on Debian/Ubuntu
+      ansible.builtin.apt:
+        name:
+          - grub2-common
+        state: present
+        update_cache: true
+      when: ansible_os_family == 'Debian'
+
+    - name: Install GRUB tools on RedHat/Rocky/Alma/Fedora
+      ansible.builtin.raw: dnf install -y grub2-tools
+      when: ansible_os_family == 'RedHat'
+      changed_when: false

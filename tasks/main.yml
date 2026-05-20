@@ -1,0 +1,191 @@
+---
+
+- name: Set cgroup kernel arguments
+  ansible.builtin.set_fact:
+    __cgroup_kernel_args: >-
+      {{ (cgroup_enforce_mode == 'v2') | ternary(
+            ['systemd.unified_cgroup_hierarchy=1','cgroup_no_v1=all'],
+            ['systemd.unified_cgroup_hierarchy=0'] + (cgroup_v1_enable_memory | bool | ternary((cgroup_v1_add_cgroup_memory_param | bool | ternary(['cgroup_memory=1'], [])) + ['cgroup_enable=memory','swapaccount=1'], []))
+         ) + cgroup_extra_kernel_params }}
+
+- name: Stat /etc/default/grub
+  ansible.builtin.stat:
+    path: /etc/default/grub
+  register: __grub_file
+
+- name: Create /etc/default/grub if missing
+  ansible.builtin.copy:
+    dest: /etc/default/grub
+    content: ''
+    owner: root
+    group: root
+    mode: '0644'
+    force: false
+  when: not __grub_file.stat.exists
+
+- name: Check GRUB cmdline keys presence
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^{{ item }}='
+    state: absent
+  check_mode: true
+  changed_when: false
+  loop:
+    - GRUB_CMDLINE_LINUX
+    - GRUB_CMDLINE_LINUX_DEFAULT
+  register: __grub_keys
+
+- name: Create missing GRUB cmdline keys
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    line: '{{ item.item }}=""'
+    insertafter: EOF
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  loop: '{{ __grub_keys.results }}'
+  when: (item.found | default(0)) == 0
+  register: __ensure_lines
+
+- name: Accumulate reboot requirement from ensure lines
+  ansible.builtin.set_fact:
+    cgroup_reboot_required: '{{ (cgroup_reboot_required | default(false) | bool) or (__ensure_lines is defined and (__ensure_lines.results | selectattr("changed") | list | length > 0)) }}'
+
+- name: Correct mismatched option values in GRUB cmdlines
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    backrefs: true
+    regexp: '^({{ item.0 }}="[^"]*?{{ (item.1.split("=")[0] | regex_escape) }}=)(?!{{ (item.1.split("=")[1] | default("") | regex_escape) }})[^"\s]+'
+    line: '\\g<1>{{ (item.1.split("=")[1] | default("") ) }}'
+  loop: '{{ ["GRUB_CMDLINE_LINUX", "GRUB_CMDLINE_LINUX_DEFAULT"] | product(__cgroup_kernel_args) | list }}'
+  register: __fix_results
+
+- name: Accumulate reboot requirement from corrections
+  ansible.builtin.set_fact:
+    cgroup_reboot_required: '{{ (cgroup_reboot_required | default(false) | bool) or (__fix_results is defined and (__fix_results.results | selectattr("changed") | list | length > 0)) }}'
+
+- name: Check presence of options in GRUB cmdlines
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^{{ item.0 }}="[^"]*{{ (item.1 | regex_escape) }}[^"]*"'
+    state: absent
+  check_mode: true
+  changed_when: false
+  loop: '{{ ["GRUB_CMDLINE_LINUX", "GRUB_CMDLINE_LINUX_DEFAULT"] | product(__cgroup_kernel_args) | list }}'
+  register: __option_checks
+
+- name: Append missing options to GRUB cmdlines
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    backrefs: true
+    regexp: '^({{ item.0 }}="(?![^"]*{{ (item.1 | regex_escape) }}[^"]*)[^"]*)(".*)$'
+    line: '\g<1> {{ item.1 }}\g<2>'
+  loop: '{{ ["GRUB_CMDLINE_LINUX", "GRUB_CMDLINE_LINUX_DEFAULT"] | product(__cgroup_kernel_args) | list }}'
+  loop_control:
+    index_var: idx
+  when: (__option_checks.results[idx].found | default(0)) == 0
+  register: __append_results
+
+- name: Accumulate reboot requirement from appends
+  ansible.builtin.set_fact:
+    cgroup_reboot_required: '{{ (cgroup_reboot_required | default(false) | bool) or (__append_results is defined and (__append_results.results | selectattr("changed") | list | length > 0)) }}'
+
+- name: Detect GRUB configuration target (EL family)
+  ansible.builtin.set_fact:
+    grub_cfg_candidates:
+      - /boot/grub2/grub.cfg
+      - /etc/grub2.cfg
+      - /boot/efi/EFI/redhat/grub.cfg
+      - /boot/efi/EFI/centos/grub.cfg
+      - /boot/efi/EFI/rocky/grub.cfg
+      - /boot/efi/EFI/almalinux/grub.cfg
+      - /boot/efi/EFI/fedora/grub.cfg
+
+- name: Probe GRUB config paths
+  ansible.builtin.stat:
+    path: '{{ item }}'
+  loop: '{{ grub_cfg_candidates }}'
+  register: __grub_cfg_stats
+
+- name: Select GRUB config path
+  ansible.builtin.set_fact:
+    grub_cfg_path: '{{ (__grub_cfg_stats.results | selectattr("stat.exists", "equalto", true) | map(attribute="item") | first) | default("/boot/grub2/grub.cfg") }}'
+
+- name: Probe container marker files
+  ansible.builtin.stat:
+    path: '{{ item }}'
+  loop:
+    - /.dockerenv
+    - /run/.containerenv
+    - /run/systemd/container
+  register: __container_markers
+
+- name: Detect containerized environment to skip GRUB regeneration
+  ansible.builtin.set_fact:
+    cgroup_skip_grub_update: >-
+      {{
+        (
+          ansible_virtualization_type is defined and
+          ansible_virtualization_type in ['docker', 'podman', 'containerd', 'lxc', 'lxd']
+        ) or (
+          ansible_virtualization_role is defined and
+          ansible_virtualization_role == 'guest' and
+          ansible_virtualization_type is defined and
+          ansible_virtualization_type in ['docker', 'podman', 'containerd', 'lxc', 'lxd']
+        ) or (
+          ansible_mounts is defined and
+          (ansible_mounts | selectattr('mount', 'equalto', '/') | selectattr('fstype', 'equalto', 'overlay') | list | length > 0)
+        ) or (
+          __container_markers is defined and
+          (__container_markers.results | selectattr('stat.exists', 'equalto', true) | list | length > 0)
+        )
+      }}
+
+- name: Flush pending handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Update GRUB on Debian/Ubuntu
+  ansible.builtin.command: update-grub
+  when: (ansible_os_family == 'Debian') and (cgroup_reboot_required | default(false) | bool) and not (cgroup_skip_grub_update | default(false))
+  notify: Reboot host for cgroup changes
+  changed_when: true
+
+- name: Update GRUB on RedHat/Rocky/Alma/Fedora
+  ansible.builtin.command:
+    argv:
+      - grub2-mkconfig
+      - -o
+      - "{{ grub_cfg_path }}"
+  when: (ansible_os_family == 'RedHat') and (cgroup_reboot_required | default(false) | bool) and not (cgroup_skip_grub_update | default(false))
+  notify: Reboot host for cgroup changes
+  changed_when: true
+
+- name: Detect cgroup filesystem type
+  ansible.builtin.command: stat -fc %T /sys/fs/cgroup
+  register: __cgroup_fs
+  changed_when: false
+  failed_when: false
+
+- name: Check v1 memory controller directory
+  ansible.builtin.stat:
+    path: /sys/fs/cgroup/memory
+  register: __memcg_dir
+
+- name: Check memory controller enabled in /proc/cgroups
+  ansible.builtin.command: awk '/^memory\s/ {print $4}' /proc/cgroups
+  register: __proc_memcg
+  changed_when: false
+  failed_when: false
+
+- name: Set memory cgroup availability fact
+  ansible.builtin.set_fact:
+    cgroup_memcg_ok: >-
+      {{ (__cgroup_fs.stdout | default('')) == 'cgroup2fs' or (__memcg_dir.stat.exists | default(false)) or ((__proc_memcg.stdout | default('')) == '1') }}
+
+- name: Trigger reboot when memcg expected but absent
+  ansible.builtin.debug:
+    msg: "Memory cgroup expected but not available -- scheduling reboot"
+  when: (cgroup_force_reboot_on_memcg_absent | bool) and ((cgroup_enforce_mode == 'v2') or (cgroup_enforce_mode == 'v1' and (cgroup_v1_enable_memory | bool))) and not (cgroup_memcg_ok | default(false)) and not (cgroup_skip_grub_update | default(false))
+  notify: Reboot host for cgroup changes
+  changed_when: true

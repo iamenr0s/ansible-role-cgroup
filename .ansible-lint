@@ -1,0 +1,35 @@
+---
+# .ansible-lint
+
+profile: null # min, basic, moderate, safety, shared, production
+
+exclude_paths:
+  - .cache/
+  - .github/
+
+loop_var_prefix: "^(__|{role}_)"
+
+var_naming_pattern: "^[a-z_][a-z0-9_]*$"
+
+use_default_rules: true
+
+skip_list: []
+
+enable_list:
+  - args
+  - empty-string-compare # opt-in
+  - no-log-password # opt-in
+  - no-same-owner # opt-in
+  - name[prefix] # opt-in
+  - galaxy-version-incorrect # opt-in
+  - yaml
+
+warn_list:
+  - experimental
+
+offline: true
+
+kinds:
+  - yaml: "**/*.yaml-too"
+
+task_name_prefix: "{stem} | "
