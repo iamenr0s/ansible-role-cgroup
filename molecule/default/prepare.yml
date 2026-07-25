@@ -6,28 +6,38 @@
   become: false
 
   tasks:
-    - name: Bootstrap Python 3.7+ on EL8 (default python3 is 3.6)
-      ansible.builtin.raw: |
-        python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)" 2>/dev/null || \
-        dnf install -y python39 2>/dev/null || true
+    - name: Ensure /tmp exists (raw)
+      ansible.builtin.raw: >
+        bash -lc 'mkdir -p /tmp && chmod 0777 /tmp'
       changed_when: false
+
+    # python39: used only as a fallback for older EL images whose default
+    # python3 predates ansible-core's minimum (EL8 ships Python 3.6).
+    - name: Install Python 3 (raw, cross-platform)
+      ansible.builtin.raw: >
+        bash -lc '
+        if command -v dnf >/dev/null 2>&1; then
+          dnf -y install python3 || dnf -y install python39;
+        elif command -v yum >/dev/null 2>&1; then
+          yum -y install python3 || yum -y install python36;
+        elif command -v apt-get >/dev/null 2>&1; then
+          apt-get update -y && apt-get install -y python3;
+        fi'
+      changed_when: true
+
+    - name: Reset connection to use installed Python
+      ansible.builtin.meta: reset_connection
 
     - name: Gather facts
       ansible.builtin.setup:
 
-    - name: Ensure /tmp exists
-      ansible.builtin.file:
-        path: /tmp
-        state: directory
-        mode: '0777'
-
     - name: Verify Python 3 is available
       ansible.builtin.assert:
         that:
-          - ansible_python_version is defined
-          - ansible_python_version is version('3.0', '>=')
-        fail_msg: "Python 3 is required but not available"
-        success_msg: "Python {{ ansible_python_version }} is available"
+          - ansible_facts['python_version'] is defined
+          - ansible_facts['python_version'] is version('3.0', '>=')
+        fail_msg: Python 3 is required but not available
+        success_msg: "Python {{ ansible_facts['python_version'] }} is available"
 
     - name: Install GRUB tools on Debian/Ubuntu
       ansible.builtin.apt:
@@ -35,9 +45,9 @@
           - grub2-common
         state: present
         update_cache: true
-      when: ansible_os_family == 'Debian'
+      when: ansible_facts['os_family'] == 'Debian'
 
     - name: Install GRUB tools on RedHat/Rocky/Alma/Fedora
       ansible.builtin.raw: dnf install -y grub2-tools
-      when: ansible_os_family == 'RedHat'
+      when: ansible_facts['os_family'] == 'RedHat'
       changed_when: false

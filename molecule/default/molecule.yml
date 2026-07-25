@@ -6,7 +6,7 @@ dependency:
   options:
     ignore-errors: true
 driver:
-  name: docker
+  name: podman
 platforms:
   - name: instance
     image: "iamenr0s/docker-${MOLECULE_DISTRO:-almalinux10}-ansible:latest"
@@ -20,3 +20,4 @@ provisioner:
   name: ansible
   playbooks:
     converge: ${MOLECULE_PLAYBOOK:-converge.yml}
+    prepare: prepare.yml

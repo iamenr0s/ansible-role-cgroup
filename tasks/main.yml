@@ -7,11 +7,13 @@
             ['systemd.unified_cgroup_hierarchy=1','cgroup_no_v1=all'],
             ['systemd.unified_cgroup_hierarchy=0'] + (cgroup_v1_enable_memory | bool | ternary((cgroup_v1_add_cgroup_memory_param | bool | ternary(['cgroup_memory=1'], [])) + ['cgroup_enable=memory','swapaccount=1'], []))
          ) + cgroup_extra_kernel_params }}
+  tags: [cgroup]
 
 - name: Stat /etc/default/grub
   ansible.builtin.stat:
     path: /etc/default/grub
   register: __grub_file
+  tags: [cgroup]
 
 - name: Create /etc/default/grub if missing
   ansible.builtin.copy:
@@ -22,6 +24,7 @@
     mode: '0644'
     force: false
   when: not __grub_file.stat.exists
+  tags: [cgroup]
 
 - name: Check GRUB cmdline keys presence
   ansible.builtin.lineinfile:
@@ -34,6 +37,7 @@
     - GRUB_CMDLINE_LINUX
     - GRUB_CMDLINE_LINUX_DEFAULT
   register: __grub_keys
+  tags: [cgroup]
 
 - name: Create missing GRUB cmdline keys
   ansible.builtin.lineinfile:
@@ -47,10 +51,12 @@
   loop: '{{ __grub_keys.results }}'
   when: (item.found | default(0)) == 0
   register: __ensure_lines
+  tags: [cgroup]
 
 - name: Accumulate reboot requirement from ensure lines
   ansible.builtin.set_fact:
     cgroup_reboot_required: '{{ (cgroup_reboot_required | default(false) | bool) or (__ensure_lines is defined and (__ensure_lines.results | selectattr("changed") | list | length > 0)) }}'
+  tags: [cgroup]
 
 - name: Correct mismatched option values in GRUB cmdlines
   ansible.builtin.lineinfile:
@@ -60,10 +66,12 @@
     line: '\\g<1>{{ (item.1.split("=")[1] | default("") ) }}'
   loop: '{{ ["GRUB_CMDLINE_LINUX", "GRUB_CMDLINE_LINUX_DEFAULT"] | product(__cgroup_kernel_args) | list }}'
   register: __fix_results
+  tags: [cgroup]
 
 - name: Accumulate reboot requirement from corrections
   ansible.builtin.set_fact:
     cgroup_reboot_required: '{{ (cgroup_reboot_required | default(false) | bool) or (__fix_results is defined and (__fix_results.results | selectattr("changed") | list | length > 0)) }}'
+  tags: [cgroup]
 
 - name: Check presence of options in GRUB cmdlines
   ansible.builtin.lineinfile:
@@ -74,6 +82,7 @@
   changed_when: false
   loop: '{{ ["GRUB_CMDLINE_LINUX", "GRUB_CMDLINE_LINUX_DEFAULT"] | product(__cgroup_kernel_args) | list }}'
   register: __option_checks
+  tags: [cgroup]
 
 - name: Append missing options to GRUB cmdlines
   ansible.builtin.lineinfile:
@@ -86,10 +95,12 @@
     index_var: idx
   when: (__option_checks.results[idx].found | default(0)) == 0
   register: __append_results
+  tags: [cgroup]
 
 - name: Accumulate reboot requirement from appends
   ansible.builtin.set_fact:
     cgroup_reboot_required: '{{ (cgroup_reboot_required | default(false) | bool) or (__append_results is defined and (__append_results.results | selectattr("changed") | list | length > 0)) }}'
+  tags: [cgroup]
 
 - name: Detect GRUB configuration target (EL family)
   ansible.builtin.set_fact:
@@ -101,16 +112,19 @@
       - /boot/efi/EFI/rocky/grub.cfg
       - /boot/efi/EFI/almalinux/grub.cfg
       - /boot/efi/EFI/fedora/grub.cfg
+  tags: [cgroup]
 
 - name: Probe GRUB config paths
   ansible.builtin.stat:
     path: '{{ item }}'
   loop: '{{ grub_cfg_candidates }}'
   register: __grub_cfg_stats
+  tags: [cgroup]
 
 - name: Select GRUB config path
   ansible.builtin.set_fact:
     grub_cfg_path: '{{ (__grub_cfg_stats.results | selectattr("stat.exists", "equalto", true) | map(attribute="item") | first) | default("/boot/grub2/grub.cfg") }}'
+  tags: [cgroup]
 
 - name: Probe container marker files
   ansible.builtin.stat:
@@ -120,36 +134,43 @@
     - /run/.containerenv
     - /run/systemd/container
   register: __container_markers
+  tags: [cgroup]
 
 - name: Detect containerized environment to skip GRUB regeneration
   ansible.builtin.set_fact:
     cgroup_skip_grub_update: >-
       {{
         (
-          ansible_virtualization_type is defined and
-          ansible_virtualization_type in ['docker', 'podman', 'containerd', 'lxc', 'lxd']
+          ansible_facts['virtualization_type'] is defined and
+          ansible_facts['virtualization_type'] in ['docker', 'podman', 'containerd', 'lxc', 'lxd']
         ) or (
-          ansible_virtualization_role is defined and
-          ansible_virtualization_role == 'guest' and
-          ansible_virtualization_type is defined and
-          ansible_virtualization_type in ['docker', 'podman', 'containerd', 'lxc', 'lxd']
+          ansible_facts['virtualization_role'] is defined and
+          ansible_facts['virtualization_role'] == 'guest' and
+          ansible_facts['virtualization_type'] is defined and
+          ansible_facts['virtualization_type'] in ['docker', 'podman', 'containerd', 'lxc', 'lxd']
         ) or (
-          ansible_mounts is defined and
-          (ansible_mounts | selectattr('mount', 'equalto', '/') | selectattr('fstype', 'equalto', 'overlay') | list | length > 0)
+          ansible_facts['mounts'] is defined and
+          (ansible_facts['mounts'] | selectattr('mount', 'equalto', '/') | selectattr('fstype', 'equalto', 'overlay') | list | length > 0)
         ) or (
           __container_markers is defined and
           (__container_markers.results | selectattr('stat.exists', 'equalto', true) | list | length > 0)
         )
       }}
+  tags: [cgroup]
 
 - name: Flush pending handlers
   ansible.builtin.meta: flush_handlers
+  tags: [cgroup]
 
 - name: Update GRUB on Debian/Ubuntu
   ansible.builtin.command: update-grub
-  when: (ansible_os_family == 'Debian') and (cgroup_reboot_required | default(false) | bool) and not (cgroup_skip_grub_update | default(false))
+  when: >-
+    (ansible_facts['os_family'] == 'Debian') and
+    (cgroup_reboot_required | default(false) | bool) and
+    not (cgroup_skip_grub_update | default(false))
   notify: Reboot host for cgroup changes
   changed_when: true
+  tags: [cgroup]
 
 - name: Update GRUB on RedHat/Rocky/Alma/Fedora
   ansible.builtin.command:
@@ -157,35 +178,50 @@
       - grub2-mkconfig
       - -o
       - "{{ grub_cfg_path }}"
-  when: (ansible_os_family == 'RedHat') and (cgroup_reboot_required | default(false) | bool) and not (cgroup_skip_grub_update | default(false))
+  when: >-
+    (ansible_facts['os_family'] == 'RedHat') and
+    (cgroup_reboot_required | default(false) | bool) and
+    not (cgroup_skip_grub_update | default(false))
   notify: Reboot host for cgroup changes
   changed_when: true
+  tags: [cgroup]
 
 - name: Detect cgroup filesystem type
   ansible.builtin.command: stat -fc %T /sys/fs/cgroup
   register: __cgroup_fs
   changed_when: false
   failed_when: false
+  tags: [cgroup]
 
 - name: Check v1 memory controller directory
   ansible.builtin.stat:
     path: /sys/fs/cgroup/memory
   register: __memcg_dir
+  tags: [cgroup]
 
 - name: Check memory controller enabled in /proc/cgroups
   ansible.builtin.command: awk '/^memory\s/ {print $4}' /proc/cgroups
   register: __proc_memcg
   changed_when: false
   failed_when: false
+  tags: [cgroup]
 
 - name: Set memory cgroup availability fact
   ansible.builtin.set_fact:
     cgroup_memcg_ok: >-
       {{ (__cgroup_fs.stdout | default('')) == 'cgroup2fs' or (__memcg_dir.stat.exists | default(false)) or ((__proc_memcg.stdout | default('')) == '1') }}
+  tags: [cgroup]
 
+# ansible.builtin.debug is used here purely to fire the notify below; there's
+# no reboot module invocation on this task itself, the handler does that.
 - name: Trigger reboot when memcg expected but absent
   ansible.builtin.debug:
-    msg: "Memory cgroup expected but not available -- scheduling reboot"
-  when: (cgroup_force_reboot_on_memcg_absent | bool) and ((cgroup_enforce_mode == 'v2') or (cgroup_enforce_mode == 'v1' and (cgroup_v1_enable_memory | bool))) and not (cgroup_memcg_ok | default(false)) and not (cgroup_skip_grub_update | default(false))
+    msg: Memory cgroup expected but not available -- scheduling reboot
+  when: >-
+    (cgroup_force_reboot_on_memcg_absent | bool) and
+    ((cgroup_enforce_mode == 'v2') or (cgroup_enforce_mode == 'v1' and (cgroup_v1_enable_memory | bool))) and
+    not (cgroup_memcg_ok | default(false)) and
+    not (cgroup_skip_grub_update | default(false))
   notify: Reboot host for cgroup changes
   changed_when: true
+  tags: [cgroup]

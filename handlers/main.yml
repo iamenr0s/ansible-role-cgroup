@@ -5,3 +5,4 @@
     reboot_timeout: 600
     msg: "Reboot initiated to apply cgroup configuration"
   when: cgroup_allow_reboot | default(true) | bool
+  tags: [cgroup]

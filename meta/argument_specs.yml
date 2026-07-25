@@ -1,0 +1,47 @@
+---
+
+argument_specs:
+  main:
+    short_description: >-
+      Manages Linux cgroup configuration across Debian/Ubuntu and
+      RHEL-family (AlmaLinux/RockyLinux/Fedora) hosts via GRUB kernel
+      parameters, rebooting when changes are applied.
+    options:
+      cgroup_enforce_mode:
+        description: Cgroup mode to enforce.
+        type: str
+        choices:
+          - v1
+          - v2
+        default: v2
+      cgroup_v1_enable_memory:
+        description: >-
+          When cgroup_enforce_mode is v1, enables memory accounting with
+          cgroup_enable=memory swapaccount=1.
+        type: bool
+        default: true
+      cgroup_v1_add_cgroup_memory_param:
+        description: >-
+          When cgroup_enforce_mode is v1 and cgroup_v1_enable_memory is
+          true, also adds cgroup_memory=1 for kernels that require an
+          explicit enable.
+        type: bool
+        default: true
+      cgroup_force_reboot_on_memcg_absent:
+        description: >-
+          Force a reboot when the memory cgroup controller is expected
+          (v2, or v1 with cgroup_v1_enable_memory) but not detected on the
+          running kernel. Set to false to suppress the automatic reboot.
+        type: bool
+        default: true
+      cgroup_extra_kernel_params:
+        description: List of extra kernel key=value parameters to append.
+        type: list
+        elements: str
+        default: []
+      cgroup_allow_reboot:
+        description: >-
+          Set to false to disable automatic reboots entirely. Useful in
+          environments where reboots must be scheduled manually.
+        type: bool
+        default: true

@@ -5,7 +5,7 @@
   gather_facts: true
 
   roles:
-    - role: iamenr0s.ansible_role_cgroup
+    - role: "{{ playbook_dir }}/../.."
       vars:
         cgroup_enforce_mode: "v2"
         cgroup_extra_kernel_params:
