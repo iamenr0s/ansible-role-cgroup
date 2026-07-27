@@ -76,11 +76,6 @@ Enforce v1 with memory accounting and extra params:
 - Set `cgroup_allow_reboot: false` if reboots must be scheduled manually rather than happening automatically when configuration changes.
 - Inside containers (Docker/Podman/LXC/LXD), GRUB regeneration and reboot are automatically skipped — the role detects this via `ansible_virtualization_type`, overlay rootfs, and container marker files.
 
-## Contributing & Security
-
-- Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
-- Report vulnerabilities privately per [SECURITY.md](SECURITY.md); do not open public issues for them.
-
 ## CI & Release (maintainers)
 
 A single workflow (`.github/workflows/molecule.yml`) runs lint and the full Molecule distro matrix on pushes to `main`, PRs, and `v*` tags. On `v*` tags, a `release` job publishes to Ansible Galaxy after all tests pass.
